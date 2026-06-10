@@ -5,15 +5,16 @@ import boto3
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "DELETE", "PUT", "OPTIONS"],
     allow_headers=["*"],
+    allow_credentials=True,
 )
 
 s3 = boto3.client(
@@ -51,3 +52,32 @@ def get_presigned_url(req: PresignedRequest):
         ExpiresIn=300,
     )
     return {"presignedUrl": url, "key": key}
+
+@app.get("/api/files")
+def listar_archivos():
+    try:
+        response = s3.list_objects_v2(Bucket=BUCKET, Prefix="uploads/")
+        archivos = []
+        for obj in response.get("Contents", []):
+            archivos.append({
+                "nombre": obj["Key"].replace("uploads/", ""),
+                "key": obj["Key"],
+                "tamaño": obj["Size"],
+                "fecha": obj["LastModified"].strftime("%Y-%m-%d %H:%M"),
+                "url": s3.generate_presigned_url(
+                    "get_object",
+                    Params={"Bucket": BUCKET, "Key": obj["Key"]},
+                    ExpiresIn=3600,
+                )
+            })
+        return archivos
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Error al listar archivos")
+
+@app.delete("/api/files/{key:path}")
+def eliminar_archivo(key: str):
+    try:
+        s3.delete_object(Bucket=BUCKET, Key=key)
+        return {"mensaje": "Archivo eliminado"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Error al eliminar archivo")
