@@ -8,6 +8,7 @@ function App() {
   const [file, setFile] = useState(null);
   const [mensaje, setMensaje] = useState("");
   const [cargando, setCargando] = useState(false);
+  const [progreso, setProgreso] = useState(0);
 
   useEffect(() => {
     listarArchivos();
@@ -25,6 +26,7 @@ function App() {
   const subirArchivo = async () => {
     if (!file) return;
     setCargando(true);
+    setProgreso(0);
     setMensaje("");
     try {
       const res = await axios.post(`${API}/api/upload/presigned-url`, {
@@ -34,6 +36,12 @@ function App() {
       });
       await axios.put(res.data.presignedUrl, file, {
         headers: { "Content-Type": file.type },
+        onUploadProgress: (progressEvent) => {
+          const porcentaje = Math.round(
+            (progressEvent.loaded * 100) / progressEvent.total
+          );
+          setProgreso(porcentaje);
+        },
       });
       setMensaje("Archivo subido correctamente");
       listarArchivos();
@@ -76,6 +84,21 @@ function App() {
           {cargando ? "Subiendo..." : "Subir"}
         </button>
       </div>
+
+      {cargando && (
+        <div style={{ marginTop: 8, marginBottom: 8 }}>
+          <div style={{ background: "#ddd", borderRadius: 4, height: 10 }}>
+            <div style={{
+              background: "#4caf50",
+              width: `${progreso}%`,
+              height: 10,
+              borderRadius: 4,
+              transition: "width 0.3s"
+            }} />
+          </div>
+          <p style={{ fontSize: 12, margin: "4px 0" }}>{progreso}%</p>
+        </div>
+      )}
 
       {mensaje && <p style={{ color: "green" }}>{mensaje}</p>}
 
