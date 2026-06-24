@@ -72,7 +72,7 @@ def listar_archivos():
             })
         return archivos
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Error al listar archivos")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 @app.delete("/api/files/{key:path}")
 def eliminar_archivo(key: str):
@@ -80,4 +80,4 @@ def eliminar_archivo(key: str):
         s3.delete_object(Bucket=BUCKET, Key=key)
         return {"mensaje": "Archivo eliminado"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Error al eliminar archivo")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
