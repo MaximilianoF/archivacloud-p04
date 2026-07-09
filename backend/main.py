@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import boto3
 import os
+import uuid
+from datetime import datetime
 from dotenv import load_dotenv
 
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env'))
@@ -24,6 +26,15 @@ s3 = boto3.client(
     aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
     aws_session_token=os.getenv("AWS_SESSION_TOKEN"),
 )
+
+dynamodb = boto3.resource(
+    "dynamodb",
+    region_name=os.getenv("AWS_REGION"),
+    aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+    aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+    aws_session_token=os.getenv("AWS_SESSION_TOKEN"),
+)
+tabla = dynamodb.Table("database_dynamodb")
 
 BUCKET = os.getenv("S3_BUCKET_NAME")
 ALLOWED_EXTENSIONS = {"csv", "xlsx"}
@@ -51,6 +62,13 @@ def get_presigned_url(req: PresignedRequest):
         Params={"Bucket": BUCKET, "Key": key, "ContentType": req.fileType},
         ExpiresIn=300,
     )
+    tabla.put_item(Item={
+        "id_tabla": str(uuid.uuid4()),
+        "nombre_proyecto": req.fileName,
+        "fecha_subida": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+        "tamaño": str(req.fileSize),
+        "tipo": req.fileType,
+    })
     return {"presignedUrl": url, "key": key}
 
 @app.get("/api/files")
@@ -71,7 +89,7 @@ def listar_archivos():
                 )
             })
         return archivos
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error interno del servidor")
 
 @app.delete("/api/files/{key:path}")
@@ -79,5 +97,5 @@ def eliminar_archivo(key: str):
     try:
         s3.delete_object(Bucket=BUCKET, Key=key)
         return {"mensaje": "Archivo eliminado"}
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Error interno del servidor")
